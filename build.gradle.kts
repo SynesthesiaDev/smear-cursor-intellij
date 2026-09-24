@@ -6,9 +6,6 @@ plugins {
     id("org.jetbrains.intellij.platform")
 }
 
-group = "com.smearcursor"
-version = "1.0.0"
-
 repositories {
     mavenCentral()
     intellijPlatform {
@@ -32,7 +29,7 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("253");
-        untilBuild.set("")
+        untilBuild.set(provider { null })
 
         pluginDescription.set(provider { file("description.html").readText() })
     }
