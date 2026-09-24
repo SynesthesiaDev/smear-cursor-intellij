@@ -8,11 +8,11 @@
 
     <extensions defaultExtensionNs="com.intellij">
         
-        <postStartupActivity implementation="com.smearcursor.SmearCursorStartupActivity"/>
+        <postStartupActivity implementation="moe.syndev.smear.SmearCursorStartupActivity"/>
 
         <applicationConfigurable
                 parentId="editor"
-                instance="com.smearcursor.settings.SmearCursorConfigurable"
+                instance="moe.syndev.smear.settings.SmearCursorConfigurable"
                 id="com.smearcursor.settings"
                 displayName="Smear Cursor"
         />
@@ -21,10 +21,12 @@
 
     <actions>
         <action id="SmearCursor.Toggle"
-                class="com.smearcursor.actions.ToggleSmearCursorAction"
+                class="moe.syndev.smear.actions.ToggleSmearCursorAction"
                 text="Toggle Smear Cursor"
                 description="Enable or disable smear cursor animation">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
+        <action id="moe.syndev.smear.actions.ToggleSmearCursorAction" class="moe.syndev.smear.actions.ToggleSmearCursorAction"
+                text="Toggle Smear Cursor"/>
     </actions>
 </idea-plugin>

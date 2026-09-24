@@ -1,0 +1,347 @@
+package moe.syndev.smear.animation
+
+import moe.syndev.smear.settings.SmearCursorSettings
+import moe.syndev.smear.util.MutableVector2
+import kotlin.math.*
+
+/**
+ * Animation engine implementing spring physics for cursor movement.
+ * This is the core animation system that mirrors animation.lua from the Neovim plugin.
+ */
+class AnimationEngine {
+
+    companion object {
+        private const val BASE_TIME_INTERVAL = 17.0 // Base timing in milliseconds (60 FPS)
+    }
+
+    val frame = AnimationFrame(
+        corners = Array(4) { MutableVector2() },
+        targetPosition = MutableVector2(),
+        isAnimating = false,
+        headIndex = 0,
+        tailIndex = 0,
+        gradientOrigin = MutableVector2(),
+        gradientDirection = MutableVector2(),
+    )
+
+    // Animation state
+    private var animating = false
+    private var previousTime = 0L
+
+    // Cursor position tracking (in pixel coordinates)
+    private val targetPosition = MutableVector2()
+
+    // Quad corners: represents the smear shape
+    // Corner indices: 0=top-left, 1=top-right, 2=bottom-right, 3=bottom-left
+    private val currentCorners = Array(4) { MutableVector2() }
+    private val targetCorners = Array(4) { MutableVector2() }
+    private val velocityCorners = Array(4) { MutableVector2() }
+    private val stiffnesses = doubleArrayOf(0.0, 0.0, 0.0, 0.0)
+
+    // Cursor dimensions (in pixels)
+    private var cursorWidth = 8.0
+    private var cursorHeight = 16.0
+
+    /**
+     * Initialize the animation engine with cursor dimensions.
+     */
+    fun initialize(width: Double, height: Double) {
+        cursorWidth = width
+        cursorHeight = height
+    }
+
+    /**
+     * Set corners based on cursor position and dimensions.
+     */
+    private fun setCorners(corners: Array<MutableVector2>, x: Double, y: Double) {
+
+        // Top-left
+        corners[0].x = x
+        corners[0].y = y
+
+        // Top-right
+        corners[1].x = x + cursorWidth
+        corners[1].y = y
+
+        // Bottom-right
+        corners[2].x = x + cursorWidth
+        corners[2].y = y + cursorHeight
+
+        // Bottom-left
+        corners[3].x = x
+        corners[3].y = y + cursorHeight
+    }
+
+    private fun resetVelocity() {
+        for (i in 0..3) {
+            velocityCorners[i].x = 0.0
+            velocityCorners[i].y = 0.0
+        }
+    }
+
+    /**
+     * Set initial velocity based on anticipation (opposite to movement direction).
+     */
+    private fun setInitialVelocity() {
+        val settings = SmearCursorSettings.getInstance()
+        for (i in 0..3) {
+            velocityCorners[i].x = (currentCorners[i].x - targetCorners[i].x) * settings.anticipation
+            velocityCorners[i].y = (currentCorners[i].y - targetCorners[i].y) * settings.anticipation
+        }
+    }
+
+    /**
+     * Get the center point of a set of corners.
+     */
+    private fun getCenter(corners: Array<MutableVector2>): MutableVector2 {
+        return MutableVector2(
+            (corners[0].x + corners[1].x + corners[2].x + corners[3].x) / 4.0,
+            (corners[0].y + corners[1].y + corners[2].y + corners[3].y) / 4.0
+        )
+    }
+
+    /**
+     * Jump cursor immediately to new position without animation.
+     */
+    fun jump(x: Double, y: Double) {
+        targetPosition.set(x, y)
+        setCorners(targetCorners, x, y)
+        setCorners(currentCorners, x, y)
+        resetVelocity()
+        animating = false
+        previousTime = 0L
+    }
+
+    /**
+     * Start animation towards a new target position.
+     */
+    fun animateTo(x: Double, y: Double) {
+        val settings = SmearCursorSettings.getInstance()
+
+        // Check minimum distances
+        val currentX = currentCorners[0].x
+        val currentY = currentCorners[0].y
+        val dx = abs(x - currentX)
+        val dy = abs(y - currentY)
+
+        if (dy < settings.minVerticalDistanceSmear * cursorHeight &&
+            dx < settings.minHorizontalDistanceSmear * cursorWidth
+        ) {
+            jump(x, y)
+            return
+        }
+
+        // Check direction restrictions
+        if (!settings.smearHorizontally && dy <= cursorHeight / 2) {
+            jump(x, y)
+            return
+        }
+        if (!settings.smearVertically && dx <= cursorWidth / 2) {
+            jump(x, y)
+            return
+        }
+        if (!settings.smearDiagonally && dy > cursorHeight / 2 && dx > cursorWidth / 2) {
+            jump(x, y)
+            return
+        }
+
+        targetPosition.set(x, y)
+        setCorners(targetCorners, x, y)
+        setStiffnesses()
+
+        if (!animating) {
+            setInitialVelocity()
+        }
+
+        animating = true
+    }
+
+    /**
+     * Calculate stiffness values for each corner based on distance from target.
+     */
+    private fun setStiffnesses() {
+        val settings = SmearCursorSettings.getInstance()
+        val targetCenter = getCenter(targetCorners)
+        val distances = DoubleArray(4)
+        var minDistance = Double.MAX_VALUE
+        var maxDistance = 0.0
+
+        val headStiffness = settings.stiffness
+        val trailingStiffness = settings.trailingStiffness
+        val trailingExponent = settings.trailingExponent
+
+        for (i in 0..3) {
+            val distance = sqrt(
+                (currentCorners[i].x - targetCenter.x).pow(2.0) +
+                        (currentCorners[i].y - targetCenter.y).pow(2.0)
+            )
+            minDistance = min(minDistance, distance)
+            maxDistance = max(maxDistance, distance)
+            distances[i] = distance
+        }
+
+        if (maxDistance == minDistance) {
+            for (i in 0..3) {
+                stiffnesses[i] = headStiffness
+            }
+            return
+        }
+
+        for (i in 0..3) {
+            val x = (distances[i] - minDistance) / (maxDistance - minDistance)
+            val stiffness = headStiffness + (trailingStiffness - headStiffness) * x.pow(trailingExponent)
+            stiffnesses[i] = min(1.0, stiffness)
+        }
+    }
+
+    /**
+     * Perform one animation update step.
+     * Returns the current animation frame data for rendering.
+     */
+    fun update(): AnimationFrame? {
+        if (!animating) return null
+
+        val settings = SmearCursorSettings.getInstance()
+        val currentTime = System.nanoTime() / 1_000_000L
+
+        val timeInterval = if (previousTime == 0L) {
+            previousTime = currentTime
+            BASE_TIME_INTERVAL
+        } else {
+            val elapsed = (currentTime - previousTime).toDouble()
+            previousTime = currentTime
+            elapsed
+        }
+
+        // Calculate physics
+        val speedCorrection = timeInterval / BASE_TIME_INTERVAL
+        val damping = settings.damping
+        val velocityConservationFactor = exp(ln(1.0 - damping) * speedCorrection)
+        val dampingCorrectionFactor = 1.0 / (1.0 + 2.5 * velocityConservationFactor)
+
+        var distanceHeadToTargetSquared = Double.MAX_VALUE
+        var distanceTailToTargetSquared = 0.0
+        var indexHead = 0
+        var indexTail = 0
+
+        // Update each corner
+        for (i in 0..3) {
+            val distanceSquared = (currentCorners[i].x - targetCorners[i].x).pow(2.0) +
+                    (currentCorners[i].y - targetCorners[i].y).pow(2.0)
+
+            val stiffness = 1.0 - exp(ln(1.0 - stiffnesses[i] * dampingCorrectionFactor) * speedCorrection)
+
+            if (distanceSquared < distanceHeadToTargetSquared) {
+                distanceHeadToTargetSquared = distanceSquared
+                indexHead = i
+            }
+            if (distanceSquared > distanceTailToTargetSquared) {
+                distanceTailToTargetSquared = distanceSquared
+                indexTail = i
+            }
+
+            velocityCorners[i].x += (targetCorners[i].x - currentCorners[i].x) * stiffness
+            currentCorners[i].x += velocityCorners[i].x
+            velocityCorners[i].x *= velocityConservationFactor
+
+            velocityCorners[i].y += (targetCorners[i].y - currentCorners[i].y) * stiffness
+            currentCorners[i].y += velocityCorners[i].y
+            velocityCorners[i].y *= velocityConservationFactor
+        }
+
+        // Limit smear length
+        var smearLength = 0.0
+        for (i in 0..3) {
+            if (i != indexHead) {
+                val distance = sqrt(
+                    (currentCorners[i].x - currentCorners[indexHead].x).pow(2.0) +
+                            (currentCorners[i].y - currentCorners[indexHead].y).pow(2.0)
+                )
+                smearLength = max(smearLength, distance)
+            }
+        }
+
+        val maxLength = settings.maxLength * cursorWidth
+        if (smearLength > maxLength) {
+            val factor = maxLength / smearLength
+            for (i in 0..3) {
+                if (i != indexHead) {
+                    currentCorners[i].x = currentCorners[indexHead].x +
+                            (currentCorners[i].x - currentCorners[indexHead].x) * factor
+
+                    currentCorners[i].y = currentCorners[indexHead].y +
+                            (currentCorners[i].y - currentCorners[indexHead].y) * factor
+                }
+            }
+        }
+        
+        // Check if animation should stop
+        var maxDistance = 0.0
+        var maxVelocity = 0.0
+        for (i in 0..3) {
+            val distance = sqrt(
+                (currentCorners[i].x - targetCorners[i].x).pow(2.0) +
+                        (currentCorners[i].y - targetCorners[i].y).pow(2.0)
+            )
+            val velocity = sqrt(velocityCorners[i].x.pow(2.0) + velocityCorners[i].y.pow(2.0))
+            maxDistance = max(maxDistance, distance)
+            maxVelocity = max(maxVelocity, velocity)
+        }
+
+        val stopThreshold = settings.distanceStopAnimating * cursorWidth
+        if (maxDistance <= stopThreshold && maxVelocity <= stopThreshold) {
+            setCorners(currentCorners, targetPosition.x, targetPosition.y)
+            resetVelocity()
+            animating = false
+            previousTime = 0L
+        }
+
+        // Calculate gradient direction
+        val gradientOrigin = MutableVector2(currentCorners[indexHead].x, currentCorners[indexHead].y)
+        val gradientDirection = MutableVector2(
+            currentCorners[indexTail].x - currentCorners[indexHead].x,
+            currentCorners[indexTail].y - currentCorners[indexHead].y
+        )
+        val gradientLengthSquared = gradientDirection.x * gradientDirection.x + gradientDirection.y * gradientDirection.y 
+        val magnitude = sqrt(gradientLengthSquared)
+        if (gradientLengthSquared > 1.0) {
+            gradientDirection.x /= magnitude
+            gradientDirection.y /= magnitude
+        } else {
+            gradientDirection.x = 0.0
+            gradientDirection.y = 0.0
+        }
+
+        for (i in 0..3) {
+            frame.corners[i].set(currentCorners[i].x, currentCorners[i].y)
+        }
+        frame.targetPosition.set(targetPosition)
+        frame.isAnimating = animating
+        frame.headIndex = indexHead
+        frame.tailIndex = indexTail
+        frame.gradientOrigin.set(gradientOrigin)
+        frame.gradientDirection.set(gradientDirection)
+        
+        return frame
+    }
+
+    /**
+     * Check if animation is currently running.
+     */
+    fun isAnimating(): Boolean = animating
+
+    /**
+     * Stop animation immediately.
+     */
+    fun stopAnimation() {
+        animating = false
+        previousTime = 0L
+    }
+
+    /**
+     * Get the time interval for the next frame.
+     */
+    fun getFrameInterval(): Int {
+        return SmearCursorSettings.getInstance().timeInterval
+    }
+}

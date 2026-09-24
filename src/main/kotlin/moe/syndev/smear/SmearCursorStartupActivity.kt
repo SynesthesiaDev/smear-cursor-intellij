@@ -1,4 +1,4 @@
-package com.smearcursor
+package moe.syndev.smear
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project

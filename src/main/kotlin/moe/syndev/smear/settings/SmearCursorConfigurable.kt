@@ -1,14 +1,12 @@
-package com.smearcursor.settings
+package moe.syndev.smear.settings
 
 import com.intellij.openapi.options.Configurable
 import com.intellij.ui.ColorPanel
-import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBSlider
 import com.intellij.util.ui.FormBuilder
 import java.awt.BorderLayout
-import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
 import javax.swing.*

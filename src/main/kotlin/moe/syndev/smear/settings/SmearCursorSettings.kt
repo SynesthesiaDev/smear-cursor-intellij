@@ -1,4 +1,4 @@
-package com.smearcursor.settings
+package moe.syndev.smear.settings
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.PersistentStateComponent

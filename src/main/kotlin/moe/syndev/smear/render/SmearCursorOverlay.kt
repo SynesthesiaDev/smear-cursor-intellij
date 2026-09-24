@@ -1,19 +1,20 @@
-package com.smearcursor.render
+package moe.syndev.smear.render
 
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.CaretEvent
 import com.intellij.openapi.editor.event.CaretListener
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
-import com.smearcursor.animation.AnimationEngine
-import com.smearcursor.settings.SmearCursorSettings
+import moe.syndev.smear.animation.AnimationEngine
+import moe.syndev.smear.settings.SmearCursorSettings
 import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Point
-import java.awt.Rectangle
+import java.awt.RenderingHints
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
 import javax.swing.Timer
+import kotlin.math.abs
 
 /**
  * Overlay component that renders the smear cursor effect on top of the editor.
@@ -129,8 +130,8 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
             val suppressForTyping = isTypingChange && !settings.smearWhileTyping
 
             if (oldPosition != null && !suppressForTyping) {
-                val dx = kotlin.math.abs(newPosition.x - oldPosition.x)
-                val dy = kotlin.math.abs(newPosition.y - oldPosition.y)
+                val dx = abs(newPosition.x - oldPosition.x)
+                val dy = abs(newPosition.y - oldPosition.y)
 
                 // Check if movement is significant enough
                 if (dx > cursorWidth / 2 || dy > cursorHeight / 2) {
@@ -189,19 +190,19 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
         try {
             // Set rendering hints for performance
             g2d.setRenderingHint(
-                java.awt.RenderingHints.KEY_ANTIALIASING,
-                java.awt.RenderingHints.VALUE_ANTIALIAS_ON
+                RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON
             )
             g2d.setRenderingHint(
-                java.awt.RenderingHints.KEY_RENDERING,
-                java.awt.RenderingHints.VALUE_RENDER_SPEED
+                RenderingHints.KEY_RENDERING,
+                RenderingHints.VALUE_RENDER_SPEED
             )
             
             // Update animation and get current frame
             val frame = animationEngine.update()
 
             if (frame != null && frame.isAnimating) {
-                renderer.render(g2d, frame, editor, cursorWidth, cursorHeight)
+                renderer.render(g2d, frame, editor)
                 
                 // Update timer interval in case settings changed
                 animationTimer?.delay = animationEngine.getFrameInterval()

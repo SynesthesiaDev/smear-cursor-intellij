@@ -1,7 +1,7 @@
-package com.smearcursor.util
+package moe.syndev.smear.util
 
 import com.intellij.ui.JBColor
-import com.smearcursor.settings.SmearCursorSettings
+import moe.syndev.smear.settings.SmearCursorSettings
 import java.awt.Color
 import kotlin.math.pow
 import kotlin.math.roundToInt

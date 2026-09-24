@@ -1,4 +1,4 @@
-package com.smearcursor
+package moe.syndev.smear
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -9,13 +9,16 @@ import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.editor.event.VisibleAreaListener
 import com.intellij.openapi.editor.ex.EditorEx
-import com.smearcursor.render.SmearCursorOverlay
-import com.smearcursor.settings.SmearCursorSettings
-import java.awt.BorderLayout
+import moe.syndev.smear.render.SmearCursorOverlay
+import moe.syndev.smear.settings.SmearCursorSettings
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
+import java.awt.event.HierarchyEvent
+import java.awt.event.HierarchyListener
 import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JComponent
 import javax.swing.JLayeredPane
-import javax.swing.JPanel
+import javax.swing.JRootPane
 import javax.swing.SwingUtilities
 
 /**
@@ -86,9 +89,9 @@ class SmearCursorService : Disposable {
         } else {
             // Component not ready yet (happens for restored tabs at startup)
             // Wait for it to become displayable using a HierarchyListener
-            val hierarchyListener = object : java.awt.event.HierarchyListener {
-                override fun hierarchyChanged(e: java.awt.event.HierarchyEvent) {
-                    if ((e.changeFlags and java.awt.event.HierarchyEvent.SHOWING_CHANGED.toLong()) != 0L) {
+            val hierarchyListener = object : HierarchyListener {
+                override fun hierarchyChanged(e: HierarchyEvent) {
+                    if ((e.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong()) != 0L) {
                         if (contentComponent.isShowing) {
                             contentComponent.removeHierarchyListener(this)
                             SwingUtilities.invokeLater {
@@ -108,7 +111,7 @@ class SmearCursorService : Disposable {
     /**
      * Actually add the overlay to the editor (called when component is ready).
      */
-    private fun doAddOverlayToEditor(editor: Editor, contentComponent: JComponent, rootPane: javax.swing.JRootPane) {
+    private fun doAddOverlayToEditor(editor: Editor, contentComponent: JComponent, rootPane: JRootPane) {
         if (editorOverlays.containsKey(editor)) return
         
         try {
@@ -145,14 +148,14 @@ class SmearCursorService : Disposable {
             visibleAreaListeners[editor] = visibleAreaListener
 
             // Update overlay bounds when content component changes
-            contentComponent.addComponentListener(object : java.awt.event.ComponentAdapter() {
-                override fun componentResized(e: java.awt.event.ComponentEvent?) {
+            contentComponent.addComponentListener(object : ComponentAdapter() {
+                override fun componentResized(e: ComponentEvent?) {
                     SwingUtilities.invokeLater { updateOverlayBounds() }
                 }
-                override fun componentMoved(e: java.awt.event.ComponentEvent?) {
+                override fun componentMoved(e: ComponentEvent?) {
                     SwingUtilities.invokeLater { updateOverlayBounds() }
                 }
-                override fun componentShown(e: java.awt.event.ComponentEvent?) {
+                override fun componentShown(e: ComponentEvent?) {
                     SwingUtilities.invokeLater { updateOverlayBounds() }
                 }
             })

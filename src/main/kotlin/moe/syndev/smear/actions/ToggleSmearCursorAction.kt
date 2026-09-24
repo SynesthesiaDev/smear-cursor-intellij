@@ -1,10 +1,10 @@
-package com.smearcursor.actions
+package moe.syndev.smear.actions
 
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.Toggleable
-import com.smearcursor.SmearCursorService
+import moe.syndev.smear.SmearCursorService
 
 /**
  * Action to toggle the smear cursor effect on/off.

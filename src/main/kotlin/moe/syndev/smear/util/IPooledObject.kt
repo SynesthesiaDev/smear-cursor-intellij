@@ -1,4 +1,4 @@
-﻿package com.smearcursor.util
+﻿package moe.syndev.smear.util
 
 interface IPooledObject {
     
