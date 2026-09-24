@@ -11,7 +11,9 @@ import kotlin.math.*
 class AnimationEngine {
 
     companion object {
+
         private const val BASE_TIME_INTERVAL = 17.0 // Base timing in milliseconds (60 FPS)
+
     }
 
     val frame = AnimationFrame(
@@ -41,6 +43,8 @@ class AnimationEngine {
     // Cursor dimensions (in pixels)
     private var cursorWidth = 8.0
     private var cursorHeight = 16.0
+    
+    private val targetCenter: MutableVector2 = MutableVector2()
 
     /**
      * Initialize the animation engine with cursor dimensions.
@@ -93,8 +97,8 @@ class AnimationEngine {
     /**
      * Get the center point of a set of corners.
      */
-    private fun getCenter(corners: Array<MutableVector2>): MutableVector2 {
-        return MutableVector2(
+    private fun getCenter(corners: Array<MutableVector2>, out: MutableVector2) {
+        out.set(
             (corners[0].x + corners[1].x + corners[2].x + corners[3].x) / 4.0,
             (corners[0].y + corners[1].y + corners[2].y + corners[3].y) / 4.0
         )
@@ -161,7 +165,7 @@ class AnimationEngine {
      */
     private fun setStiffnesses() {
         val settings = SmearCursorSettings.getInstance()
-        val targetCenter = getCenter(targetCorners)
+        getCenter(targetCorners, targetCenter)
         val distances = DoubleArray(4)
         var minDistance = Double.MAX_VALUE
         var maxDistance = 0.0
@@ -171,10 +175,9 @@ class AnimationEngine {
         val trailingExponent = settings.trailingExponent
 
         for (i in 0..3) {
-            val distance = sqrt(
-                (currentCorners[i].x - targetCenter.x).pow(2.0) +
-                        (currentCorners[i].y - targetCenter.y).pow(2.0)
-            )
+            val x = (currentCorners[i].x - targetCenter.x)
+            val y = (currentCorners[i].y - targetCenter.y)
+            val distance = sqrt(x * x + y * y)
             minDistance = min(minDistance, distance)
             maxDistance = max(maxDistance, distance)
             distances[i] = distance
@@ -200,7 +203,7 @@ class AnimationEngine {
      */
     fun update(): AnimationFrame? {
         if (!animating) return null
-
+        
         val settings = SmearCursorSettings.getInstance()
         val currentTime = System.nanoTime() / 1_000_000L
 
@@ -226,10 +229,13 @@ class AnimationEngine {
 
         // Update each corner
         for (i in 0..3) {
-            val distanceSquared = (currentCorners[i].x - targetCorners[i].x).pow(2.0) +
-                    (currentCorners[i].y - targetCorners[i].y).pow(2.0)
+            val x = (currentCorners[i].x - targetCorners[i].x)
+            val y = (currentCorners[i].y - targetCorners[i].y)
+            val distanceSquared = x * x + y * y
 
-            val stiffness = 1.0 - exp(ln(1.0 - stiffnesses[i] * dampingCorrectionFactor) * speedCorrection)
+            // fast path
+            val stiffness = if (speedCorrection == 1.0) stiffnesses[i] * dampingCorrectionFactor
+            else 1.0 - exp(ln(1.0 - stiffnesses[i] * dampingCorrectionFactor) * speedCorrection)
 
             if (distanceSquared < distanceHeadToTargetSquared) {
                 distanceHeadToTargetSquared = distanceSquared
@@ -253,10 +259,9 @@ class AnimationEngine {
         var smearLength = 0.0
         for (i in 0..3) {
             if (i != indexHead) {
-                val distance = sqrt(
-                    (currentCorners[i].x - currentCorners[indexHead].x).pow(2.0) +
-                            (currentCorners[i].y - currentCorners[indexHead].y).pow(2.0)
-                )
+                val x = (currentCorners[i].x - currentCorners[indexHead].x)
+                val y = (currentCorners[i].y - currentCorners[indexHead].y)
+                val distance = sqrt(x * x + y * y)
                 smearLength = max(smearLength, distance)
             }
         }
@@ -274,16 +279,18 @@ class AnimationEngine {
                 }
             }
         }
-        
+
         // Check if animation should stop
         var maxDistance = 0.0
         var maxVelocity = 0.0
         for (i in 0..3) {
-            val distance = sqrt(
-                (currentCorners[i].x - targetCorners[i].x).pow(2.0) +
-                        (currentCorners[i].y - targetCorners[i].y).pow(2.0)
-            )
-            val velocity = sqrt(velocityCorners[i].x.pow(2.0) + velocityCorners[i].y.pow(2.0))
+            val distX = (currentCorners[i].x - targetCorners[i].x) 
+            val distY = (currentCorners[i].y - targetCorners[i].y)
+            val velX = velocityCorners[i].x
+            val velY = velocityCorners[i].y
+            
+            val distance = sqrt(distX * distX + distY * distY)
+            val velocity = sqrt(velX * velX + velY * velY)
             maxDistance = max(maxDistance, distance)
             maxVelocity = max(maxVelocity, velocity)
         }
@@ -297,19 +304,17 @@ class AnimationEngine {
         }
 
         // Calculate gradient direction
-        val gradientOrigin = MutableVector2(currentCorners[indexHead].x, currentCorners[indexHead].y)
-        val gradientDirection = MutableVector2(
-            currentCorners[indexTail].x - currentCorners[indexHead].x,
-            currentCorners[indexTail].y - currentCorners[indexHead].y
-        )
-        val gradientLengthSquared = gradientDirection.x * gradientDirection.x + gradientDirection.y * gradientDirection.y 
-        val magnitude = sqrt(gradientLengthSquared)
-        if (gradientLengthSquared > 1.0) {
-            gradientDirection.x /= magnitude
-            gradientDirection.y /= magnitude
+        frame.gradientOrigin.set(currentCorners[indexHead].x, currentCorners[indexHead].y)
+        frame.gradientDirection.set(currentCorners[indexTail].x - currentCorners[indexHead].x, currentCorners[indexTail].y - currentCorners[indexHead].y)
+
+        val gradientLengthSquared = frame.gradientDirection.x * frame.gradientDirection.x + frame.gradientDirection.y * frame.gradientDirection.y
+        if (gradientLengthSquared > 1e-6) {
+            val magnitude = sqrt(gradientLengthSquared)
+            frame.gradientDirection.x /= magnitude
+            frame.gradientDirection.y /= magnitude
         } else {
-            gradientDirection.x = 0.0
-            gradientDirection.y = 0.0
+            frame.gradientDirection.x = 0.0
+            frame.gradientDirection.y = 0.0
         }
 
         for (i in 0..3) {
@@ -319,9 +324,7 @@ class AnimationEngine {
         frame.isAnimating = animating
         frame.headIndex = indexHead
         frame.tailIndex = indexTail
-        frame.gradientOrigin.set(gradientOrigin)
-        frame.gradientDirection.set(gradientDirection)
-        
+
         return frame
     }
 
