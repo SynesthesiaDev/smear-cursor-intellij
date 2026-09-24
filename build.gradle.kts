@@ -21,6 +21,7 @@ dependencies {
         intellijIdea("2025.3.5")
         testFramework(TestFrameworkType.Platform)
     }
+    implementation("it.unimi.dsi:fastutil:8.5.19")
 }
 
 tasks {

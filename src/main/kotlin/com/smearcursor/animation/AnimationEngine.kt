@@ -1,8 +1,8 @@
 package com.smearcursor.animation
 
 import com.smearcursor.settings.SmearCursorSettings
-import java.awt.Point
-import java.awt.geom.Point2D
+import com.smearcursor.util.FastObjectPool
+import com.smearcursor.util.Vector2
 import kotlin.math.*
 
 /**
@@ -13,6 +13,7 @@ class AnimationEngine {
 
     companion object {
         private const val BASE_TIME_INTERVAL = 17.0 // Base timing in milliseconds (60 FPS)
+        val VECTOR_POOL = FastObjectPool<Vector2>(capacity = 64) { Vector2() }
     }
 
     // Animation state
@@ -21,13 +22,13 @@ class AnimationEngine {
     private var lag = 0.0
 
     // Cursor position tracking (in pixel coordinates)
-    private var targetPosition = doubleArrayOf(0.0, 0.0)
+    private var targetPosition = Vector2()
     
     // Quad corners: represents the smear shape
     // Corner indices: 0=top-left, 1=top-right, 2=bottom-right, 3=bottom-left
-    private val currentCorners = Array(4) { doubleArrayOf(0.0, 0.0) }
-    private val targetCorners = Array(4) { doubleArrayOf(0.0, 0.0) }
-    private val velocityCorners = Array(4) { doubleArrayOf(0.0, 0.0) }
+    private val currentCorners = Array(4) { Vector2() }
+    private val targetCorners = Array(4) { Vector2() }
+    private val velocityCorners = Array(4) { Vector2() }
     private val stiffnesses = doubleArrayOf(0.0, 0.0, 0.0, 0.0)
 
     // Particle system
@@ -38,14 +39,7 @@ class AnimationEngine {
     private var cursorWidth = 8.0
     private var cursorHeight = 16.0
 
-    /**
-     * Data class representing a particle in the particle system.
-     */
-    data class Particle(
-        var position: DoubleArray,
-        var velocity: DoubleArray,
-        var lifetime: Double
-    )
+
 
     /**
      * Animation frame result containing all rendering data.
