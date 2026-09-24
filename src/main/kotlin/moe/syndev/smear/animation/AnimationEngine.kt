@@ -6,7 +6,7 @@ import kotlin.math.*
 
 /**
  * Animation engine implementing spring physics for cursor movement.
- * This is the core animation system that mirrors animation.lua from the Neovim plugin.
+ * This is the core animation system that mirrors animation.lua from the Neovim plugin, optimized for JVM
  */
 class AnimationEngine {
 
@@ -201,10 +201,9 @@ class AnimationEngine {
      * Perform one animation update step.
      * Returns the current animation frame data for rendering.
      */
-    fun update(): AnimationFrame? {
+    fun update(settings: SmearCursorSettings): AnimationFrame? {
         if (!animating) return null
         
-        val settings = SmearCursorSettings.getInstance()
         val currentTime = System.nanoTime() / 1_000_000L
 
         val timeInterval = if (previousTime == 0L) {
@@ -344,7 +343,7 @@ class AnimationEngine {
     /**
      * Get the time interval for the next frame.
      */
-    fun getFrameInterval(): Int {
-        return SmearCursorSettings.getInstance().timeInterval
+    fun getFrameInterval(settings: SmearCursorSettings): Int {
+        return settings.timeInterval
     }
 }

@@ -183,8 +183,9 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
 
     override fun paintComponent(g: Graphics) {
         super.paintComponent(g)
+        val settings = SmearCursorSettings.getInstance()
 
-        if (!enabled || !SmearCursorSettings.getInstance().enabled) return
+        if (!enabled || !settings.enabled) return
 
         val g2d = g.create() as Graphics2D
         try {
@@ -199,13 +200,13 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
             )
             
             // Update animation and get current frame
-            val frame = animationEngine.update()
+            val frame = animationEngine.update(settings)
 
             if (frame != null && frame.isAnimating) {
                 renderer.render(g2d, frame, editor)
                 
                 // Update timer interval in case settings changed
-                animationTimer?.delay = animationEngine.getFrameInterval()
+                animationTimer?.delay = animationEngine.getFrameInterval(settings)
             } else {
                 // Animation finished
                 animationTimer?.stop()
