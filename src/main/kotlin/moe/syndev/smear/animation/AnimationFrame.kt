@@ -2,11 +2,8 @@
 
 import moe.syndev.smear.util.MutableVector2
 
-/**
- * Animation frame result containing all rendering data.
- */
 data class AnimationFrame(
-    var corners: Array<MutableVector2>,
+    var corners: Corners,
     val targetPosition: MutableVector2,
     var isAnimating: Boolean,
     var headIndex: Int,

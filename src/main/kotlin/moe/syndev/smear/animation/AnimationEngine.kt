@@ -6,7 +6,8 @@ import kotlin.math.*
 
 /**
  * Animation engine implementing spring physics for cursor movement.
- * This is the core animation system that mirrors animation.lua from the Neovim plugin, optimized for JVM
+ * This is the core animation system. It originally mirrored animation.lua from the <a href="https://github.com/sphamba/smear-cursor.nvim">neovim plugin</a>  
+ * but was altered to perform better on the jvm
  */
 class AnimationEngine {
 
@@ -17,7 +18,7 @@ class AnimationEngine {
     }
 
     val frame = AnimationFrame(
-        corners = Array(4) { MutableVector2() },
+        corners = Corners(),
         targetPosition = MutableVector2(),
         isAnimating = false,
         headIndex = 0,
@@ -35,9 +36,9 @@ class AnimationEngine {
 
     // Quad corners: represents the smear shape
     // Corner indices: 0=top-left, 1=top-right, 2=bottom-right, 3=bottom-left
-    private val currentCorners = Array(4) { MutableVector2() }
-    private val targetCorners = Array(4) { MutableVector2() }
-    private val velocityCorners = Array(4) { MutableVector2() }
+    private val currentCorners = Corners()
+    private val targetCorners = Corners()
+    private val velocityCorners = Corners()
     private val stiffnesses = doubleArrayOf(0.0, 0.0, 0.0, 0.0)
 
     // Cursor dimensions (in pixels)
@@ -46,41 +47,33 @@ class AnimationEngine {
     
     private val targetCenter: MutableVector2 = MutableVector2()
 
+
     /**
-     * Initialize the animation engine with cursor dimensions.
+     * Initialized the animation engine with cursor dimensions
+     * @param width cursor width
+     * @param height cursor height
      */
     fun initialize(width: Double, height: Double) {
         cursorWidth = width
         cursorHeight = height
     }
 
+    
     /**
-     * Set corners based on cursor position and dimensions.
+     * Sets corners based on cursor's position and dimensions.
+     * @param corners Corners
+     * @param x Cursor's x position
+     * @param y Cursor's y position
      */
-    private fun setCorners(corners: Array<MutableVector2>, x: Double, y: Double) {
-
-        // Top-left
-        corners[0].x = x
-        corners[0].y = y
-
-        // Top-right
-        corners[1].x = x + cursorWidth
-        corners[1].y = y
-
-        // Bottom-right
-        corners[2].x = x + cursorWidth
-        corners[2].y = y + cursorHeight
-
-        // Bottom-left
-        corners[3].x = x
-        corners[3].y = y + cursorHeight
+    private fun setCorners(corners: Corners, x: Double, y: Double) {
+        corners.topLeft.set(x, y)
+        corners.topRight.set(x + cursorWidth, y)
+        corners.bottomRight.set(x + cursorWidth, y + cursorHeight)
+        corners.bottomLeft.set(x, y + cursorHeight)
     }
 
     private fun resetVelocity() {
-        for (i in 0..3) {
-            velocityCorners[i].x = 0.0
-            velocityCorners[i].y = 0.0
-        }
+        velocityCorners.reset()
     }
 
     /**
@@ -97,10 +90,10 @@ class AnimationEngine {
     /**
      * Get the center point of a set of corners.
      */
-    private fun getCenter(corners: Array<MutableVector2>, out: MutableVector2) {
+    private fun getCenter(corners: Corners, out: MutableVector2) {
         out.set(
-            (corners[0].x + corners[1].x + corners[2].x + corners[3].x) / 4.0,
-            (corners[0].y + corners[1].y + corners[2].y + corners[3].y) / 4.0
+            (corners.topLeft.x + corners.topRight.x + corners.bottomRight.x + corners.bottomLeft.x) / 4.0,
+            (corners.topLeft.y + corners.topRight.y + corners.bottomRight.y + corners.bottomLeft.y) / 4.0
         )
     }
 
@@ -329,9 +322,6 @@ class AnimationEngine {
         frame.isAnimating = animating
         frame.headIndex = indexHead
         frame.tailIndex = indexTail
-
-//        println("[smear] anim=$animating maxDist=$maxDistance maxVel=$maxVelocity " +
-//                "thresh=$stopThreshold smearLen=$smearLength maxLen=${settings.maxLength * cursorWidth}")
 
         return frame
     }
