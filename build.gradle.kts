@@ -34,7 +34,7 @@ tasks {
         sinceBuild.set("253");
         untilBuild.set("")
 
-        pluginDescription.set(provider { file("description.html").readText() })
+        pluginDescription.set(provider { file("description.md").readText() })
     }
 }
 

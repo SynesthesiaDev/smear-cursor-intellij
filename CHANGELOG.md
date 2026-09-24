@@ -1,8 +1,8 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# Synx Changelog
+# Smear Cursor Intellij Changelog
 
-## [2026.3109.0] - 2026-09-31
+## [2026.0924.0.0] - 2026-09-24
 
 ### Added
 
