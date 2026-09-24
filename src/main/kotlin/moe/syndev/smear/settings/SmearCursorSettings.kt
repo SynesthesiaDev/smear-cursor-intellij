@@ -38,7 +38,9 @@ class SmearCursorSettings : PersistentStateComponent<SmearCursorSettings> {
     var stiffness: Double = 0.6 // How fast the smear's head moves towards target (0-1)
     var trailingStiffness: Double = 0.45 // How fast the smear's tail moves towards target (0-1)
     var anticipation: Double = 0.2 // Initial velocity factor opposite to target
-    var damping: Double = 0.85 // Velocity reduction over time (0-1)
+
+    var damping: Double = 0.99 // Velocity reduction over time (0-1)
+        set(value) { field = value.coerceIn(0.0, 0.999) }
     var trailingExponent: Double = 3.0 // Controls middle points closer to head or tail
     var distanceStopAnimating: Double = 0.1 // Stop when within this distance
 

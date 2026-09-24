@@ -213,15 +213,6 @@ class SmearCursorService : Disposable {
      */
     fun isEnabled(): Boolean = SmearCursorSettings.getInstance().enabled
 
-    /**
-     * Refresh all overlays (call when settings change).
-     */
-    fun refreshAllOverlays() {
-        editorOverlays.values.forEach { overlay ->
-            overlay.refreshDimensions()
-        }
-    }
-
     override fun dispose() {
         editorOverlays.keys.toList().forEach { editor ->
             removeOverlayFromEditor(editor)

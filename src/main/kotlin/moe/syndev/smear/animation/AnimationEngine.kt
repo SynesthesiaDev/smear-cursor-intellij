@@ -212,7 +212,7 @@ class AnimationEngine {
         } else {
             val elapsed = (currentTime - previousTime).toDouble()
             previousTime = currentTime
-            elapsed
+            if (elapsed < 1.0) BASE_TIME_INTERVAL else elapsed
         }
 
         // Calculate physics
@@ -316,6 +316,12 @@ class AnimationEngine {
             frame.gradientDirection.y = 0.0
         }
 
+        if (currentCorners[0].x.isNaN()) {
+            //whoopsie!!
+            stopAnimation()
+            return null
+        }
+
         for (i in 0..3) {
             frame.corners[i].set(currentCorners[i].x, currentCorners[i].y)
         }
@@ -323,6 +329,9 @@ class AnimationEngine {
         frame.isAnimating = animating
         frame.headIndex = indexHead
         frame.tailIndex = indexTail
+
+//        println("[smear] anim=$animating maxDist=$maxDistance maxVel=$maxVelocity " +
+//                "thresh=$stopThreshold smearLen=$smearLength maxLen=${settings.maxLength * cursorWidth}")
 
         return frame
     }
