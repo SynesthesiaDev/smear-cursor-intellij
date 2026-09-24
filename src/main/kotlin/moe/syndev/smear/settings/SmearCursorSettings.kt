@@ -70,6 +70,7 @@ class SmearCursorSettings : PersistentStateComponent<SmearCursorSettings> {
     var particleGravity: Double = 20.0
 
     companion object {
+        
         @JvmStatic
         fun getInstance(): SmearCursorSettings {
             return ApplicationManager.getApplication().getService(SmearCursorSettings::class.java)

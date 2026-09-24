@@ -1,5 +1,6 @@
 package moe.syndev.smear.render
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.event.CaretEvent
 import com.intellij.openapi.editor.event.CaretListener
@@ -7,9 +8,9 @@ import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
 import moe.syndev.smear.animation.AnimationEngine
 import moe.syndev.smear.settings.SmearCursorSettings
+import moe.syndev.smear.util.MutableVector2
 import java.awt.Graphics
 import java.awt.Graphics2D
-import java.awt.Point
 import java.awt.RenderingHints
 import javax.swing.JComponent
 import javax.swing.SwingUtilities
@@ -20,25 +21,25 @@ import kotlin.math.abs
  * Overlay component that renders the smear cursor effect on top of the editor.
  * This component is added to the editor's layered pane and handles animation timing.
  */
-class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListener, DocumentListener {
+class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListener, DocumentListener, Disposable {
 
     private val animationEngine = AnimationEngine()
     private val renderer = SmearCursorRenderer()
     private var animationTimer: Timer? = null
-    private var lastCaretPosition: Point? = null
-    private var enabled = true
+    private val lastCaretPosition: MutableVector2 = MutableVector2()
+    private var hasLastCaretPosition = false
 
     // Cursor dimensions
     private var cursorWidth = 2.0
     private var cursorHeight = 16.0
+    
+    val settings = SmearCursorSettings.getInstance()
 
     // Tracks whether the caret moved due to a document change (typing/deletion)
-    @Volatile
     private var documentJustChanged = false
 
     init {
         isOpaque = false
-        isVisible = true
         
         // Make this component completely mouse-transparent
         // This allows clicks to pass through to the editor below
@@ -48,20 +49,21 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
         updateCursorDimensions()
         
         // Initialize animation engine
-        val caretPos = getCaretScreenPosition()
-        if (caretPos != null) {
+        val caretPos = MutableVector2()
+        if (getCaretScreenPosition(caretPos)) {
             animationEngine.initialize(cursorWidth, cursorHeight)
-            animationEngine.jump(caretPos.x.toDouble(), caretPos.y.toDouble())
-            lastCaretPosition = caretPos
+            animationEngine.jump(caretPos.x, caretPos.y)
+            lastCaretPosition.set(caretPos)
+            hasLastCaretPosition = true
         }
 
         // Add caret listener and document listener
-        editor.caretModel.addCaretListener(this)
-        editor.document.addDocumentListener(this)
+        editor.caretModel.addCaretListener(this, this)
+        editor.document.addDocumentListener(this, this)
 
         // Create animation timer with coalescing for better performance
         animationTimer = Timer(SmearCursorSettings.getInstance().timeInterval) {
-            if (enabled && animationEngine.isAnimating()) {
+            if (isEnabled && animationEngine.isAnimating()) {
                 repaint()
             }
         }
@@ -84,26 +86,19 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
      * In IntelliJ 2025+, visualPositionToXY returns viewport-relative coordinates,
      * so we don't need to subtract the scroll offset.
      */
-    private fun getCaretScreenPosition(): Point? {
+    private fun getCaretScreenPosition(out: MutableVector2): Boolean {
         try {
-            if (!editor.contentComponent.isShowing || !this.isShowing) {
-                return null
-            }
-            
+            if (!editor.contentComponent.isShowing || !this.isShowing) return false
+
             val caret = editor.caretModel.currentCaret
-            val visualPosition = caret.visualPosition
-            
-            // Get position - visualPositionToXY returns viewport-relative coordinates
-            val point = editor.visualPositionToXY(visualPosition)
-            
-            // Check if caret is in visible area
-            if (point.y < 0 || point.y > height || point.x < 0 || point.x > width) {
-                return null
-            }
-            
-            return point
+            val point = editor.visualPositionToXY(caret.visualPosition)
+
+            if (point.y !in 0..height || point.x < 0 || point.x > width) return false
+
+            out.set(point.x.toDouble(), point.y.toDouble())
+            return true
         } catch (e: Exception) {
-            return null
+            return false
         }
     }
 
@@ -113,9 +108,8 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
     }
 
     override fun caretPositionChanged(event: CaretEvent) {
-        if (!enabled) return
+        if (!isEnabled) return
 
-        val settings = SmearCursorSettings.getInstance()
         if (!settings.enabled) return
 
         // Capture and reset the typing flag
@@ -123,13 +117,14 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
         documentJustChanged = false
 
         SwingUtilities.invokeLater {
-            val newPosition = getCaretScreenPosition() ?: return@invokeLater
+            val newPosition = MutableVector2()
+            if(!getCaretScreenPosition(newPosition)) return@invokeLater
             val oldPosition = lastCaretPosition
 
             // If smear-while-typing is disabled and this caret move was caused by a document change, skip animation
             val suppressForTyping = isTypingChange && !settings.smearWhileTyping
 
-            if (oldPosition != null && !suppressForTyping) {
+            if (hasLastCaretPosition && !suppressForTyping) {
                 val dx = abs(newPosition.x - oldPosition.x)
                 val dy = abs(newPosition.y - oldPosition.y)
 
@@ -145,20 +140,21 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
                     }
 
                     if (shouldAnimate) {
-                        animationEngine.animateTo(newPosition.x.toDouble(), newPosition.y.toDouble())
+                        animationEngine.animateTo(newPosition.x, newPosition.y)
                         startAnimation()
                     } else {
-                        animationEngine.jump(newPosition.x.toDouble(), newPosition.y.toDouble())
+                        animationEngine.jump(newPosition.x, newPosition.y)
                     }
                 } else {
                     // Small movement, just jump
-                    animationEngine.jump(newPosition.x.toDouble(), newPosition.y.toDouble())
+                    animationEngine.jump(newPosition.x, newPosition.y)
                 }
             } else {
-                animationEngine.jump(newPosition.x.toDouble(), newPosition.y.toDouble())
+                animationEngine.jump(newPosition.x, newPosition.y)
             }
 
-            lastCaretPosition = newPosition
+            lastCaretPosition.set(newPosition)
+            hasLastCaretPosition = true
             repaint() // Always repaint on caret move
         }
     }
@@ -185,7 +181,7 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
         super.paintComponent(g)
         val settings = SmearCursorSettings.getInstance()
 
-        if (!enabled || !settings.enabled) return
+        if (!isEnabled || !settings.enabled) return
 
         val g2d = g.create() as Graphics2D
         try {
@@ -221,7 +217,6 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
      */
     override fun setEnabled(enabled: Boolean) {
         super.setEnabled(enabled)
-        this.enabled = enabled
         if (!enabled) {
             stopAnimation()
             repaint()
@@ -236,18 +231,12 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
     override fun contains(x: Int, y: Int): Boolean = false
 
     /**
-     * Check if the overlay is enabled.
-     */
-    fun isOverlayEnabled(): Boolean = enabled
-
-    /**
      * Clean up resources when the overlay is no longer needed.
      */
-    fun dispose() {
+
+    override fun dispose() {
         animationTimer?.stop()
         animationTimer = null
-        editor.caretModel.removeCaretListener(this)
-        editor.document.removeDocumentListener(this)
     }
 
     /**
@@ -256,14 +245,16 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
     fun onScroll() {
         // When scrolling, the caret's screen position changes even if logical position doesn't
         // We need to jump (not animate) to the new position to avoid weird trails
-        val newPosition = getCaretScreenPosition()
-        if (newPosition != null) {
-            animationEngine.jump(newPosition.x.toDouble(), newPosition.y.toDouble())
-            lastCaretPosition = newPosition
+        val newPosition = MutableVector2()
+        if (getCaretScreenPosition(newPosition)) {
+            animationEngine.jump(newPosition.x, newPosition.y)
+            lastCaretPosition.set(newPosition)
+            hasLastCaretPosition = true
         } else {
             // Caret not visible, stop animation
             animationEngine.stopAnimation()
-            lastCaretPosition = null
+            lastCaretPosition.reset()
+            hasLastCaretPosition = false
         }
         repaint()
     }
@@ -273,10 +264,11 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
      */
     fun refreshDimensions() {
         updateCursorDimensions()
-        val caretPos = getCaretScreenPosition()
-        if (caretPos != null) {
-            animationEngine.jump(caretPos.x.toDouble(), caretPos.y.toDouble())
-            lastCaretPosition = caretPos
+        val caretPos = MutableVector2()
+        if (getCaretScreenPosition(caretPos)) {
+            animationEngine.jump(caretPos.x, caretPos.y)
+            lastCaretPosition.set(caretPos)
+            hasLastCaretPosition = true
         }
     }
 }
