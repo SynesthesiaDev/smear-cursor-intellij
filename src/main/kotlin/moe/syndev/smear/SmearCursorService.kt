@@ -9,6 +9,7 @@ import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.editor.event.VisibleAreaListener
 import com.intellij.openapi.editor.ex.EditorEx
+import com.intellij.openapi.util.Disposer
 import moe.syndev.smear.render.SmearCursorOverlay
 import moe.syndev.smear.settings.SmearCursorSettings
 import java.awt.event.ComponentAdapter
@@ -136,7 +137,8 @@ class SmearCursorService : Disposable {
             }
             
             // Add to drag layer (high z-order, doesn't interfere with content)
-            layeredPane.add(overlay, JLayeredPane.DRAG_LAYER)
+            layeredPane.add(overlay)
+            layeredPane.setLayer(overlay, JLayeredPane.DRAG_LAYER)
             
             editorOverlays[editor] = overlay
 

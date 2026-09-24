@@ -6,6 +6,7 @@ import com.intellij.openapi.editor.event.CaretEvent
 import com.intellij.openapi.editor.event.CaretListener
 import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.event.DocumentListener
+import com.intellij.openapi.editor.ex.util.EditorUtil
 import moe.syndev.smear.animation.AnimationEngine
 import moe.syndev.smear.settings.SmearCursorSettings
 import moe.syndev.smear.util.MutableVector2
@@ -60,6 +61,8 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
         // Add caret listener and document listener
         editor.caretModel.addCaretListener(this, this)
         editor.document.addDocumentListener(this, this)
+
+        EditorUtil.disposeWithEditor(editor, this)
 
         // Create animation timer with coalescing for better performance
         animationTimer = Timer(SmearCursorSettings.getInstance().timeInterval) {
