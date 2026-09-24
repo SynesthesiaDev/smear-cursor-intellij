@@ -63,7 +63,7 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
 
         // Create animation timer with coalescing for better performance
         animationTimer = Timer(SmearCursorSettings.getInstance().timeInterval) {
-            if (isEnabled && animationEngine.isAnimating()) {
+            if (isEnabled && animationEngine.animating) {
                 repaint()
             }
         }
@@ -202,7 +202,7 @@ class SmearCursorOverlay(private val editor: Editor) : JComponent(), CaretListen
                 renderer.render(g2d, frame, editor)
                 
                 // Update timer interval in case settings changed
-                animationTimer?.delay = animationEngine.getFrameInterval(settings)
+                animationTimer?.delay = settings.timeInterval
             } else {
                 // Animation finished
                 animationTimer?.stop()

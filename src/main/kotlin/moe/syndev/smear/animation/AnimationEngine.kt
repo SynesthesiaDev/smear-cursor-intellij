@@ -28,7 +28,9 @@ class AnimationEngine {
     )
 
     // Animation state
-    private var animating = false
+    var animating = false
+        private set
+    
     private var previousTime = 0L
 
     // Cursor position tracking (in pixel coordinates)
@@ -82,8 +84,8 @@ class AnimationEngine {
     private fun setInitialVelocity() {
         val settings = SmearCursorSettings.getInstance()
         for (i in 0..3) {
-            velocityCorners[i].x = (currentCorners[i].x - targetCorners[i].x) * settings.anticipation
-            velocityCorners[i].y = (currentCorners[i].y - targetCorners[i].y) * settings.anticipation
+            velocityCorners[i].x = (currentCorners[i].x - targetCorners[i].x) * settings.lag
+            velocityCorners[i].y = (currentCorners[i].y - targetCorners[i].y) * settings.lag
         }
     }
 
@@ -144,7 +146,7 @@ class AnimationEngine {
 
         targetPosition.set(x, y)
         setCorners(targetCorners, x, y)
-        setStiffnesses()
+        setHeadSpeed()
 
         if (!animating) {
             setInitialVelocity()
@@ -156,15 +158,15 @@ class AnimationEngine {
     /**
      * Calculate stiffness values for each corner based on distance from target.
      */
-    private fun setStiffnesses() {
+    private fun setHeadSpeed() {
         val settings = SmearCursorSettings.getInstance()
         getCenter(targetCorners, targetCenter)
         val distances = DoubleArray(4)
         var minDistance = Double.MAX_VALUE
         var maxDistance = 0.0
 
-        val headStiffness = settings.stiffness
-        val trailingStiffness = settings.trailingStiffness
+        val headStiffness = settings.headSpeed
+        val trailingStiffness = settings.tailSpeed
         val trailingExponent = settings.trailingExponent
 
         for (i in 0..3) {
@@ -192,7 +194,7 @@ class AnimationEngine {
 
     /**
      * Perform one animation update step.
-     * Returns the current animation frame data for rendering.
+     * @return Current animation frame data for rendering, null if not animating
      */
     fun update(settings: SmearCursorSettings): AnimationFrame? {
         if (!animating) return null
@@ -225,7 +227,7 @@ class AnimationEngine {
             val y = (currentCorners[i].y - targetCorners[i].y)
             val distanceSquared = x * x + y * y
 
-            // fast path
+            // fast path for 1.0 to avoid exp and ln calculation
             val stiffness = if (speedCorrection == 1.0) stiffnesses[i] * dampingCorrectionFactor
             else 1.0 - exp(ln(1.0 - stiffnesses[i] * dampingCorrectionFactor) * speedCorrection)
 
@@ -291,8 +293,7 @@ class AnimationEngine {
         if (maxDistance <= stopThreshold && maxVelocity <= stopThreshold) {
             setCorners(currentCorners, targetPosition.x, targetPosition.y)
             resetVelocity()
-            animating = false
-            previousTime = 0L
+            stopAnimation()
         }
 
         // Calculate gradient direction
@@ -327,22 +328,10 @@ class AnimationEngine {
     }
 
     /**
-     * Check if animation is currently running.
-     */
-    fun isAnimating(): Boolean = animating
-
-    /**
-     * Stop animation immediately.
+     * Stop the current animation immediately.
      */
     fun stopAnimation() {
         animating = false
         previousTime = 0L
-    }
-
-    /**
-     * Get the time interval for the next frame.
-     */
-    fun getFrameInterval(settings: SmearCursorSettings): Int {
-        return settings.timeInterval
     }
 }
