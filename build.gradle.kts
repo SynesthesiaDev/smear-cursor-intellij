@@ -28,4 +28,12 @@ tasks {
         sourceCompatibility = "21"
         targetCompatibility = "21"
     }
+
+    patchPluginXml {
+        sinceBuild.set("253");
+        untilBuild.set("")
+
+        pluginDescription.set(provider { file("description.html").readText() })
+    }
 }
+

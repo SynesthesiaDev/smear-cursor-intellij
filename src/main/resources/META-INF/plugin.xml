@@ -1,58 +1,22 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
-    <id>com.smearcursor</id>
+    <id>moe.syndev.smearcursor</id>
     <name>Smear Cursor</name>
-    <vendor email="support@smearcursor.com" url="https://github.com/sphamba/smear-cursor.nvim">Smear Cursor</vendor>
-
-    <version>2026.3109.0</version>
-    <idea-version since-build="253"/>
-    
-    <description><![CDATA[
-    <p>Animate the cursor with a smear effect, inspired by Neovide's animated cursor.</p>
-    <p>Creates a smooth, trailing animation when the cursor moves across the editor.</p>
-
-    <h3>Features:</h3>
-    <ul>
-        <li>Smooth cursor animation with spring physics</li>
-        <li>Configurable animation speed and stiffness</li>
-        <li>Color gradient trail effect</li>
-        <li>Optional particle effects</li>
-        <li>Works across all editor windows</li>
-    </ul>
-
-    <h3>Usage:</h3>
-    <p>Enable/disable via Settings → Editor → Smear Cursor, or use the toolbar toggle.</p>
-    ]]></description>
-
-    <change-notes><![CDATA[
-    <h3>1.0.0</h3>
-    <ul>
-        <li>Initial release</li>
-        <li>Smear cursor animation with spring physics</li>
-        <li>Configurable settings</li>
-        <li>Particle effects support</li>
-    </ul>
-    ]]></change-notes>
+    <vendor email="syn@syndev.moe" url="https://syndev.moe/">Smear Cursor</vendor>
 
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- Application Service -->
-        <applicationService
-                serviceImplementation="com.smearcursor.SmearCursorService"/>
+        
+        <postStartupActivity implementation="com.smearcursor.SmearCursorStartupActivity"/>
 
-        <!-- Settings -->
         <applicationConfigurable
                 parentId="editor"
                 instance="com.smearcursor.settings.SmearCursorConfigurable"
                 id="com.smearcursor.settings"
-                displayName="Smear Cursor"/>
-
-        <applicationService
-                serviceImplementation="com.smearcursor.settings.SmearCursorSettings"/>
-
-        <!-- Startup Activity -->
-        <postStartupActivity
-                implementation="com.smearcursor.SmearCursorStartupActivity"/>
+                displayName="Smear Cursor"
+        />
+        
     </extensions>
 
     <actions>
@@ -60,7 +24,7 @@
                 class="com.smearcursor.actions.ToggleSmearCursorAction"
                 text="Toggle Smear Cursor"
                 description="Enable or disable smear cursor animation">
-            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
         </action>
     </actions>
 </idea-plugin>

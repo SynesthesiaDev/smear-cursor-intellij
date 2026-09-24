@@ -21,7 +21,7 @@ import javax.swing.SwingUtilities
 /**
  * Main application service for managing smear cursor overlays across all editors.
  */
-@Service
+@Service(Service.Level.APP)
 class SmearCursorService : Disposable {
 
     private val editorOverlays = ConcurrentHashMap<Editor, SmearCursorOverlay>()
